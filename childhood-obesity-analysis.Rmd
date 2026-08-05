@@ -1,0 +1,153 @@
+---
+title: "Childhood Obesity and Health Inequalities in Europe"
+author: "Md. Azmir Alam"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(tidyr)
+
+knitr::opts_chunk$set(echo = TRUE, fig.width = 11, fig.height = 7)
+```
+
+## Research question
+
+Which countries in the WHO European Region have the highest modelled obesity prevalence among children and adolescents, and how do patterns differ by age and sex?
+
+## Load and validate the data
+
+```{r load-data}
+data_path <- "data/raw/childhood_obesity.csv"
+obesity <- read.csv(data_path, na.strings = c("", "NA"), check.names = FALSE)
+
+required_columns <- c(
+  "Country", "Country_code", "Year", "Sex", "Age_group",
+  "Obesity_prevalence", "Lower_CI", "Upper_CI", "Source"
+)
+
+missing_columns <- setdiff(required_columns, names(obesity))
+if (length(missing_columns) > 0) {
+  stop("Missing columns: ", paste(missing_columns, collapse = ", "))
+}
+
+obesity <- obesity |>
+  mutate(
+    Year = as.integer(Year),
+    Obesity_prevalence = as.numeric(Obesity_prevalence),
+    Lower_CI = as.numeric(Lower_CI),
+    Upper_CI = as.numeric(Upper_CI),
+    Age_group_label = recode(
+      Age_group,
+      "Y5T9" = "5–9 years",
+      "Y10T19" = "10–19 years",
+      "Y5T19" = "5–19 years"
+    )
+  ) |>
+  filter(!is.na(Country), !is.na(Year), !is.na(Obesity_prevalence)) |>
+  mutate(
+    Obesity_burden_quartile = factor(
+      ntile(Obesity_prevalence, 4),
+      levels = 1:4,
+      labels = c("Low", "Moderate", "High", "Very high")
+    )
+  ) |>
+  arrange(Country, Year, Sex, Age_group)
+
+kable(head(obesity), caption = "WHO childhood and adolescent obesity estimates")
+```
+
+## Data-quality summary
+
+```{r quality-summary}
+data.frame(
+  Measure = c("Rows", "Countries", "First year", "Latest year", "Age groups"),
+  Value = c(
+    nrow(obesity),
+    n_distinct(obesity$Country),
+    min(obesity$Year),
+    max(obesity$Year),
+    paste(sort(unique(obesity$Age_group_label)), collapse = ", ")
+  )
+) |>
+  kable()
+```
+
+## Countries with the highest latest prevalence
+
+```{r latest-prevalence}
+latest_total <- obesity |>
+  filter(Sex == "Total", Age_group == "Y5T19") |>
+  group_by(Country) |>
+  slice_max(Year, n = 1, with_ties = FALSE) |>
+  ungroup()
+
+highest_prevalence <- latest_total |>
+  slice_max(Obesity_prevalence, n = 15) |>
+  arrange(Obesity_prevalence)
+
+kable(
+  highest_prevalence |>
+    select(Country, Year, Obesity_prevalence, Lower_CI, Upper_CI),
+  digits = 1,
+  caption = "Highest latest modelled obesity prevalence, ages 5–19"
+)
+```
+
+## Latest prevalence chart
+
+```{r prevalence-plot}
+obesity_plot <- ggplot(
+  highest_prevalence,
+  aes(x = Obesity_prevalence, y = reorder(Country, Obesity_prevalence))
+) +
+  geom_col(fill = "#D66565") +
+  geom_errorbar(aes(xmin = Lower_CI, xmax = Upper_CI), orientation = "y", width = 0.25) +
+  labs(
+    title = "Latest obesity prevalence (ages 5-19)",
+    subtitle = "Bars show estimates; lines show uncertainty intervals",
+    x = "Obesity prevalence (%)",
+    y = "Country"
+  ) +
+  theme_minimal(base_size = 12)
+
+obesity_plot
+
+dir.create("visuals", showWarnings = FALSE, recursive = TRUE)
+ggsave("visuals/latest_obesity_prevalence.png", obesity_plot, width = 11, height = 7, dpi = 200)
+```
+
+## Differences by sex
+
+```{r sex-comparison}
+sex_trends <- obesity |>
+  filter(Age_group == "Y5T19", Sex %in% c("Male", "Female")) |>
+  group_by(Year, Sex) |>
+  summarise(Mean_prevalence = mean(Obesity_prevalence, na.rm = TRUE), .groups = "drop")
+
+ggplot(sex_trends, aes(x = Year, y = Mean_prevalence, colour = Sex)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "Mean modelled obesity prevalence by sex",
+    x = "Year",
+    y = "Mean prevalence across available countries (%)"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+## Tableau export
+
+```{r tableau-export}
+dir.create("data/processed", showWarnings = FALSE, recursive = TRUE)
+write.csv(obesity, "data/processed/tableau_childhood_obesity.csv", row.names = FALSE, na = "")
+```
+
+## Interpretation and limitations
+
+These are modelled country-level estimates based on measured height and weight. Confidence intervals should accompany country comparisons. Variation in source surveys and data availability remains important, and ecological results cannot determine an individual child’s risk.

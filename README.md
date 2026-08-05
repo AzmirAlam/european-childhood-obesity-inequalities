@@ -19,11 +19,11 @@ The repository includes `data/raw/childhood_obesity.csv`, downloaded from the WH
 
 ## Run
 
-```bash
-pip install -r requirements.txt
-python src/analyse_childhood_obesity.py
-jupyter lab
+```r
+install.packages(c("dplyr", "ggplot2", "knitr", "rmarkdown", "tidyr"))
 ```
+
+Open `childhood-obesity-analysis.Rmd` in RStudio and click **Knit**. The analysis reads the included WHO CSV and recreates the Tableau export and chart.
 
 ## Example visual
 
