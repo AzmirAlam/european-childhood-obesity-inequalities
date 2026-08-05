@@ -7,8 +7,8 @@ import seaborn as sns
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "data/raw/childhood_obesity.csv"
 OUTPUT = ROOT / "data/processed/tableau_childhood_obesity.csv"
-CHART = ROOT / "visuals/obesity_vs_physical_activity.png"
-REQUIRED = {"Country", "Year", "Sex", "Age_group", "Overweight_prevalence", "Obesity_prevalence", "Physical_activity_prevalence"}
+CHART = ROOT / "visuals/latest_obesity_prevalence.png"
+REQUIRED = {"Country", "Country_code", "Year", "Sex", "Age_group", "Obesity_prevalence", "Lower_CI", "Upper_CI"}
 
 
 def main() -> None:
@@ -18,15 +18,19 @@ def main() -> None:
     missing = REQUIRED - set(df.columns)
     if missing:
         raise ValueError(f"Missing columns: {sorted(missing)}")
-    for column in REQUIRED - {"Country", "Sex", "Age_group"}:
-        df[column] = pd.to_numeric(df[column], errors="coerce")
+    numeric = ["Year", "Obesity_prevalence", "Lower_CI", "Upper_CI"]
+    df[numeric] = df[numeric].apply(pd.to_numeric, errors="coerce")
     df = df.dropna(subset=["Country", "Year", "Obesity_prevalence"])
-    df["Obesity_burden_quartile"] = pd.qcut(df["Obesity_prevalence"], 4, labels=["Low", "Moderate", "High", "Very high"], duplicates="drop")
+    df["Obesity_burden_quartile"] = pd.qcut(df["Obesity_prevalence"].rank(method="first"), 4, labels=["Low", "Moderate", "High", "Very high"])
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(OUTPUT, index=False)
     sns.set_theme(style="whitegrid")
-    ax = sns.scatterplot(data=df, x="Physical_activity_prevalence", y="Obesity_prevalence", hue="Sex", s=90)
-    ax.set(title="Childhood obesity and physical activity", xlabel="Physical activity prevalence (%)", ylabel="Obesity prevalence (%)")
+    plt.figure(figsize=(11, 7))
+    total = df[(df["Sex"] == "Total") & (df["Age_group"] == "Y5T19")]
+    latest = total.sort_values("Year").groupby("Country", as_index=False).tail(1)
+    top = latest.nlargest(15, "Obesity_prevalence").sort_values("Obesity_prevalence")
+    ax = sns.barplot(data=top, x="Obesity_prevalence", y="Country", color="#E45756")
+    ax.set(title="Latest obesity prevalence (ages 5–19)", xlabel="Obesity prevalence (%)", ylabel="Country")
     plt.tight_layout()
     plt.savefig(CHART, dpi=200)
     print(f"Created {OUTPUT} and {CHART}")

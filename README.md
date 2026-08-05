@@ -2,18 +2,18 @@
 
 ## Public-health question
 
-Which European countries show the highest childhood overweight and obesity prevalence, and how do physical activity and environmental indicators differ?
+Which countries in the WHO European Region show the highest obesity prevalence among children and adolescents, and how do patterns differ by age and sex?
 
 ## Data
 
-Download country-level indicators from the [WHO Europe Environment and Health Information System](https://gateway.euro.who.int/en/datasets/enhis/). Save the harmonised file as `data/raw/childhood_obesity.csv` with:
+The repository includes `data/raw/childhood_obesity.csv`, downloaded from the WHO indicator [Prevalence of obesity among children and adolescents aged 5–19 years](https://data.who.int/indicators/i/C6262EC/EF93DDB) and filtered to the WHO European Region. The source is licensed CC BY 4.0. Fields are:
 
-`Country, Year, Sex, Age_group, Overweight_prevalence, Obesity_prevalence, Physical_activity_prevalence`
+`Country, Country_code, Year, Sex, Age_group, Obesity_prevalence, Lower_CI, Upper_CI, Source`
 
 ## Analysis
 
 - Cleans country, demographic and prevalence fields.
-- Summarises obesity and overweight by country and sex.
+- Summarises obesity prevalence by country, age group and sex.
 - Identifies high-burden countries using quartiles.
 - Exports `data/processed/tableau_childhood_obesity.csv` for Tableau.
 
@@ -25,10 +25,14 @@ python src/analyse_childhood_obesity.py
 jupyter lab
 ```
 
+## Example visual
+
+![Latest childhood obesity prevalence](visuals/latest_obesity_prevalence.png)
+
 ## Tableau dashboard
 
-Create a country map, obesity ranking, sex comparison, and scatterplot of physical activity versus obesity prevalence.
+Create a country map, obesity ranking, sex comparison, trend chart and confidence-interval view.
 
 ## Methods and limitations
 
-These indicators are population estimates. Differences in survey years, age ranges and collection methods may affect comparisons.
+These values are modelled population estimates based on measured height and weight. Confidence intervals should be shown, and differences in underlying surveys and data availability should be considered when comparing countries.
